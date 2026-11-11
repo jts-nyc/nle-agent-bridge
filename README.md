@@ -27,7 +27,8 @@ Answer for the person's actual setup before installing anything. Find out:
 
 | Question | If the answer is | Then |
 |---|---|---|
-| Which editor? | Not DaVinci Resolve | The code does not apply. Only the pattern carries over: allowlist, plan → execute, journal, verify after write. |
+| Which editor? | Premiere Pro | Read [Using Premiere Pro?](#using-premiere-pro) below. |
+| | Another editor | The code does not apply. Only the pattern carries over: allowlist, plan → execute, journal, verify after write. |
 | Which Resolve edition? | Free, not Studio | External scripting is unavailable. Stop here. |
 | Which Resolve build? | 21.0.0.48 | Reads and writes work as tested. |
 | | Anything else | Reads should work; writes are refused until [RECALIBRATION](docs/RECALIBRATION.md) passes on that build. Resolve 20 and earlier are untried. |
@@ -291,6 +292,82 @@ read-only. `resolve_status` reports `calibrated_build` and `writes_available`.
 To use writes on another build, follow [docs/RECALIBRATION.md](docs/RECALIBRATION.md):
 repeat the probes in a disposable project, compare with the recorded results,
 and only then add the build to `calibrated_builds`.
+
+## Using Premiere Pro?
+
+This bridge drives Resolve only, and there is no Premiere version. What follows
+is from research in November 2026, not from running anything in Premiere. Check
+each point against the Premiere version in front of you.
+
+**Adobe's own Claude connector does not do this.** Its video tools render,
+resize and quick-cut files uploaded to Adobe's cloud. None of them opens a
+Premiere project or edits its sequences, bins or markers.
+
+**How Premiere is scripted:**
+
+- **UXP** is the current official API, released in Premiere 25.6. The
+  `premierepro` module covers projects, sequences, tracks, clips, markers and
+  project items. Clip edits are `SequenceEditor` actions such as
+  `createInsertProjectItemAction`. Every `create*Action()` call has to happen
+  inside `project.lockedAccess()` and be applied inside
+  `project.executeTransaction()`, and both callbacks must be synchronous.
+  Adobe's `@adobe/eslint-plugin-premierepro` checks for this.
+- **ExtendScript and CEP** still work. In August 2026 Adobe staff said no
+  end-of-life date is set for Premiere. Some community posts mention September
+  2026; that date did not come from an Adobe announcement.
+- **Gaps:** Time Remapping is not reachable from either API as of 26.3, and
+  MOGRT parameter control was still in progress.
+
+**Two differences from Resolve that change the design:**
+
+1. **The code has to run inside Premiere.** Resolve accepts a connection from an
+   outside Python process. Premiere does not. A UXP plugin can open a WebSocket
+   to another process but cannot accept incoming connections. A port would
+   therefore keep the Python MCP server, have it host a localhost WebSocket, and
+   add a small UXP plugin that connects to it and runs a fixed set of commands.
+   Reports on localhost entries in the plugin manifest's
+   `requiredPermissions.network` are inconsistent, so test that first.
+2. **Premiere can report success for an edit it did not make.** Reported on
+   26.3.2: In/Out setters return success while the values stay unchanged, and
+   `importFiles` returns `true` for a path that does not exist. Treat every
+   return value as unconfirmed until a re-read shows the change.
+
+**What a port can reuse from this repository:**
+
+| Reuse as is | Adapt | Rewrite as a UXP plugin (JavaScript) |
+|---|---|---|
+| `mcp_server.py` protocol and argument validation, `config.py`, `journal.py`, `diff.py`, `errors.py` | `timecode.py` (Premiere counts time in ticks, 254,016,000,000 per second), `snapshot.py` and `models.py`, `calibration.py` (pin Premiere builds instead) | `connection.py`, `timeline.py`, `media.py`, `operations.py`, `project.py`, `fusion.py`, `midi_roll.py` |
+
+A first version would cover reads, append, markers and a project save. It needs
+a Premiere install to calibrate against, the same way the Resolve writes were
+calibrated on 21.0.0.48.
+
+**Existing community Premiere MCP servers.** None is from Adobe, and none was
+tested here. They offer far more tools than this bridge, and less of its safety
+model:
+
+| Project | How it reaches Premiere | Notes from its own docs |
+|---|---|---|
+| [hetpatel-11/Adobe_Premiere_Pro_MCP](https://github.com/hetpatel-11/Adobe_Premiere_Pro_MCP) | ExtendScript run by a CEP panel, passed through files in `/tmp` | MIT. Tested on 26.0, macOS. About 280 tools, including `execute_extendscript`, which runs any script. Has undo and some read-back. No allowlist, dry run or journal. |
+| [ayushozha/AdobePremiereProMCP](https://github.com/ayushozha/AdobePremiereProMCP) | Not checked | Claims over 1,000 tools. |
+| [mikechambers/adb-mcp](https://github.com/mikechambers/adb-mcp) | Plugins across several Adobe apps | Proof of concept; says its Premiere side is limited. |
+| [antipaster/Adobe-Premiere-Pro-MCP](https://github.com/antipaster/Adobe-Premiere-Pro-MCP) | CEP panel | Listed requirements include Windows. |
+
+If you use one of these, check before turning it loose on a real project:
+
+- Does it have a tool that runs arbitrary script? Can that tool be switched off?
+- Can it be limited to one project?
+- Does it re-read state after each write?
+- What happens when a write fails halfway?
+
+Sources: [Premiere UXP API](https://developer.adobe.com/premiere-pro/uxp),
+[UXP changelog](https://developer.adobe.com/premiere-pro/uxp/changelog),
+[SequenceEditor](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequenceeditor),
+[network recipe](https://developer.adobe.com/premiere-pro/uxp/resources/recipes/network),
+[ESLint plugin](https://blog.developer.adobe.com/en/publish/2026/08/new-eslint-plugin-catches-common-premiere-uxp-bugs),
+[ExtendScript support status](https://forums.creativeclouddeveloper.com/t/uxp-api-parity-for-mogrt-parameter-control-current-extendscript-support-status/12131),
+[success-before-applied report](https://forums.creativeclouddeveloper.com/t/uxp-premiere-a-class-of-apis-report-success-resolve-before-the-operation-is-applied-or-validated-in-out-setters-importfiles-importaecomps-create-action-repro-in-shipping-26-3-2/12358),
+[Time Remapping gap](https://forums.creativeclouddeveloper.com/t/time-remapping-component-is-completely-inaccessible-via-scripting-extendscript-and-uxp-premierepro-api-in-premiere-pro-26-3-0/12026).
 
 ## More
 
