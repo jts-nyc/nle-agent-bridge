@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "resolve-ai-bridge"
+version = "0.2.0.dev0"
+description = "A scoped, verified local scripting bridge and stdio MCP server for DaVinci Resolve Studio"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = []
+keywords = ["davinci-resolve", "mcp", "model-context-protocol", "video-editing", "fusion"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Operating System :: MacOS",
+    "Topic :: Multimedia :: Video :: Non-Linear Editor",
+]
+
+[project.urls]
+Repository = "https://github.com/jts-nyc/nle-agent-bridge"
+
+[project.scripts]
+resolve-bridge = "resolve_bridge.cli:main"
+resolve-bridge-mcp = "resolve_bridge.mcp_server:main"
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = ["integration: opt-in read-only tests against a running Resolve instance"]

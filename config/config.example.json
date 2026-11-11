@@ -1,0 +1,13 @@
+{
+  "_comment": "Copy to the path `resolve-bridge paths` prints as default_config_file, or run `resolve-bridge init`. Get your project id from `resolve-bridge doctor`. Relative paths resolve against this file's folder. Omit journal_path and backup_dir to use the per-user state folder. Set write_timeline_prefix to \"\" to allow timeline writes outside AI_BRIDGE_TEST_ timelines. midi_roots lists the only folders the MIDI tools may read; empty refuses every MIDI path. calibrated_builds: see docs/RECALIBRATION.md.",
+  "allowed_projects": [
+    {
+      "id": "00000000-0000-0000-0000-000000000000",
+      "name": "My test project",
+      "allow_writes": false
+    }
+  ],
+  "write_timeline_prefix": "AI_BRIDGE_TEST_",
+  "midi_roots": [],
+  "calibrated_builds": []
+}
