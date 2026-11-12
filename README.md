@@ -31,6 +31,7 @@ Answer for the person's actual setup before installing anything. Find out:
 | | Another editor | The code does not apply. Only the pattern carries over: allowlist, plan → execute, journal, verify after write. |
 | Which Resolve edition? | Free, not Studio | External scripting is unavailable. Stop here. |
 | Which Resolve build? | 21.0.0.48 | Reads and writes work as tested. |
+| | 21.1 or later | Resolve now has its own MCP server; read [Resolve 21.1 has its own MCP server](#resolve-211-has-its-own-mcp-server) first. This bridge stays read-only there until recalibrated. |
 | | Anything else | Reads should work; writes are refused until [RECALIBRATION](docs/RECALIBRATION.md) passes on that build. Resolve 20 and earlier are untried. |
 | Which OS? | macOS | Tested (arm64). |
 | | Windows or Linux | Module paths have defaults, nothing was run. Treat as a port. |
@@ -292,6 +293,49 @@ read-only. `resolve_status` reports `calibrated_build` and `writes_available`.
 To use writes on another build, follow [docs/RECALIBRATION.md](docs/RECALIBRATION.md):
 repeat the probes in a disposable project, compare with the recorded results,
 and only then add the build to `calibrated_builds`.
+
+## Resolve 21.1 has its own MCP server
+
+Resolve Studio 21.1 (September 2026) ships a built-in MCP server, enabled from
+**File › Setup AI Assistants**. This bridge was written before it existed. The
+details below come from third-party write-ups, not from Blackmagic's
+documentation, and haven't been tested here:
+
+- **Edition.** Studio only. 21.1 also makes external Python scripting
+  Studio-only.
+- **Tools.** One guide counts 14 tools in 21.1.2. Most of the work goes through
+  two of them: `run_script`, which runs Python in a sandbox that reportedly
+  blocks file, network and process access, and `run_script_unsafe`, which
+  Blackmagic describes as having full system access. The rest cover the API
+  documentation, LUTs and DCTLs, and launching Resolve.
+- **API.** 21.1 adds about twenty scripting calls, including transitions,
+  multicam, audio normalisation, render presets and transcripts. Reviewers
+  report it still can't freely move, trim or split clips, and grade values have
+  no calls.
+
+How it compares:
+
+| | Built-in server | This bridge |
+|---|---|---|
+| Reach | Anything the scripting API can do, by the agent writing scripts | A fixed set of 25 tools |
+| Project scoping | None described | Allowlist plus the open-project check |
+| Before a write | The agent's own script | A plan the server validated, then execute |
+| Record and retry protection | None described | Journal, idempotency keys, no automatic retry |
+| After a write | None described | Re-read and exact verification |
+| Build differences | Not addressed | Writes pinned to calibrated builds |
+
+Which to use: for broad access with a person watching every step, the built-in
+server is less setup. For unattended or repeated edits, or anywhere a wrong
+write is expensive, this bridge's guardrails are the point.
+
+You can run both, but they don't coordinate. Writes made through the built-in
+server bypass this bridge's allowlist, journal and lock, so a timeline both
+touch can change under a plan. If you use both, give the built-in server
+`run_script` only, keep `run_script_unsafe` turned off or set to ask every
+time, and re-read before planning.
+
+On 21.1 this bridge is read-only until [RECALIBRATION](docs/RECALIBRATION.md)
+passes. It doesn't use any of the new 21.1 calls yet.
 
 ## Using Premiere Pro?
 
